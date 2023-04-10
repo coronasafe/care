@@ -51,7 +51,7 @@ from care.facility.models import (
     ShiftingRequest,
 )
 from care.facility.models.base import covert_choice_dict
-from care.facility.models.bed import AssetBed, ConsultationBed
+from care.facility.models.bed import AssetBed, Bed, ConsultationBed
 from care.facility.models.patient_base import DISEASE_STATUS_DICT
 from care.facility.tasks.patient.discharge_report import generate_discharge_report
 from care.users.models import User
@@ -404,6 +404,11 @@ class PatientViewSet(
             last_consultation.discharge_notes = notes
             if last_consultation.discharge_date is None:
                 last_consultation.discharge_date = current_time
+            if last_consultation.current_bed:
+                Bed.objects.filter(id=last_consultation.current_bed.bed).update(
+                    is_occupied=True
+                )
+
             last_consultation.current_bed = None
             if reason == "EXP":
                 death_datetime = request.data.get("death_datetime")
