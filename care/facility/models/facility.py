@@ -199,6 +199,17 @@ class Facility(FacilityBaseModel, FacilityPermissionMixin):
                 facility=self, user=self.created_by, created_by=self.created_by
             )
 
+    def delete(self, *args, **kwargs):
+        from care.facility.models import FacilityDefaultAssetLocation, PatientSample
+
+        FacilityDefaultAssetLocation.objects.filter(facility=self).update(deleted=True)
+        FacilityUser.objects.filter(facility=self).update(deleted=True)
+        PatientSample.objects.filter(testing_facility=self).update(
+            testing_facility=None
+        )
+
+        super().delete(*args, **kwargs)
+
     CSV_MAPPING = {
         "name": "Facility Name",
         "facility_type": "Facility Type",

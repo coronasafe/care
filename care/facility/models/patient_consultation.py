@@ -232,6 +232,19 @@ class PatientConsultation(PatientBaseModel, PatientRelatedPermissionMixin):
         """
         super(PatientConsultation, self).save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        from care.facility.models import (
+            ConsultationBed,
+            InvestigationValue,
+            PatientSample,
+        )
+
+        ConsultationBed.objects.filter(consultation=self).update(deleted=True)
+        InvestigationValue.objects.filter(consultation=self).update(deleted=True)
+        PatientSample.objects.filter(consultation=self).update(deleted=True)
+
+        super().delete(*args, **kwargs)
+
     class Meta:
         constraints = [
             models.CheckConstraint(

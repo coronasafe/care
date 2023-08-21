@@ -15,6 +15,11 @@ class PatientInvestigationGroup(BaseModel):
     def __str__(self) -> str:
         return self.name
 
+    def delete(self, *args, **kwargs):
+        InvestigationValue.objects.filter(group=self).update(deleted=True)
+
+        super().delete(*args, **kwargs)
+
 
 class PatientInvestigation(BaseModel):
     name = models.CharField(max_length=500, blank=False, null=False)
@@ -30,6 +35,11 @@ class PatientInvestigation(BaseModel):
 
     def __str__(self) -> str:
         return self.name + " in " + self.unit + " as " + self.investigation_type
+
+    def delete(self, *args, **kwargs):
+        InvestigationValue.objects.filter(investigation=self).update(deleted=True)
+
+        super().delete(*args, **kwargs)
 
 
 class InvestigationSession(BaseModel):
@@ -48,6 +58,11 @@ class InvestigationSession(BaseModel):
                 ]
             ),
         ]
+
+    def delete(self, *args, **kwargs):
+        InvestigationValue.objects.filter(session=self).update(deleted=True)
+
+        super().delete(*args, **kwargs)
 
 
 class InvestigationValue(BaseModel):

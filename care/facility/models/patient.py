@@ -478,6 +478,13 @@ class PatientRegistration(PatientBaseModel, PatientPermissionMixin):
         self._alias_recovery_to_recovered()
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        from care.facility.models import PatientSample
+
+        PatientSample.objects.filter(patient=self).update(deleted=True)
+
+        super().delete(*args, **kwargs)
+
     CSV_MAPPING = {
         # Patient Details
         "external_id": "Patient ID",

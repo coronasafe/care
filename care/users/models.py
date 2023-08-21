@@ -343,8 +343,20 @@ class User(AbstractUser):
         return User.objects.get_entire_queryset().filter(username=username).exists()
 
     def delete(self, *args, **kwargs):
+        from care.facility.models.facility import (
+            FacilityUser,
+            PatientSample,
+            UserDefaultAssetLocation,
+        )
+
         self.deleted = True
         self.save()
+
+        UserDefaultAssetLocation.objects.filter(user=self).update(deleted=True)
+        FacilityUser.objects.filter(user=self).update(deleted=True)
+        FacilityUser.objects.filter(created_by=self).update(deleted=True)
+        PatientSample.objects.filter(created_by=self).update(created_by=None)
+        PatientSample.objects.filter(last_edited_by=self).update(last_edited_by=None)
 
     def get_absolute_url(self):
         return reverse("users:detail", kwargs={"username": self.username})
