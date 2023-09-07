@@ -26,12 +26,14 @@ from rest_framework.viewsets import GenericViewSet
 
 from care.facility.api.serializers.asset import (
     AssetAvailabilitySerializer,
+    AssetDetailSerializer,
+    AssetListSerializer,
     AssetLocationSerializer,
-    AssetSerializer,
     AssetServiceSerializer,
     AssetTransactionSerializer,
     DummyAssetOperateResponseSerializer,
     DummyAssetOperateSerializer,
+    PublicAssetDetailSerializer,
     UserDefaultAssetLocationSerializer,
 )
 from care.facility.models import (
@@ -154,8 +156,10 @@ class AssetFilter(filters.FilterSet):
 
 
 class AssetPublicViewSet(GenericViewSet):
-    queryset = Asset.objects.all()
-    serializer_class = AssetSerializer
+    queryset = Asset.objects.all().select_related(
+        "current_location", "current_location__facility"
+    )
+    serializer_class = PublicAssetDetailSerializer
     lookup_field = "external_id"
 
     def retrieve(self, request, *args, **kwargs):
@@ -195,7 +199,7 @@ class AssetViewSet(
         .select_related("current_location", "current_location__facility")
         .order_by("-created_date")
     )
-    serializer_class = AssetSerializer
+    serializer_class = AssetDetailSerializer
     lookup_field = "external_id"
     filter_backends = (filters.DjangoFilterBackend, drf_filters.SearchFilter)
     search_fields = ["name", "serial_number", "qr_code_id"]
@@ -219,6 +223,11 @@ class AssetViewSet(
                 current_location__facility__id__in=allowed_facilities
             )
         return queryset
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AssetListSerializer
+        return self.serializer_class
 
     def destroy(self, request, *args, **kwargs):
         user = self.request.user
