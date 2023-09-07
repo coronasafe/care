@@ -9,7 +9,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
-from care.facility.api.serializers.daily_round import DailyRoundSerializer
+from care.facility.api.serializers.daily_round import (
+    DailyRoundsDetailSerializer,
+    DailyRoundsListSerializer,
+)
 from care.facility.api.viewsets.mixins.access import AssetUserAccessMixin
 from care.facility.models.daily_round import DailyRound
 from care.facility.models.patient_consultation import PatientConsultation
@@ -40,7 +43,7 @@ class DailyRoundsViewSet(
     mixins.UpdateModelMixin,
     GenericViewSet,
 ):
-    serializer_class = DailyRoundSerializer
+    serializer_class = DailyRoundsDetailSerializer
     permission_classes = (
         IsAuthenticated,
         DRYPermissions,
@@ -129,3 +132,8 @@ class DailyRoundsViewSet(
             "page_size": self.PAGE_SIZE,
         }
         return Response(final_data)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return DailyRoundsListSerializer
+        return DailyRoundsDetailSerializer
