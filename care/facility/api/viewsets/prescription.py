@@ -8,8 +8,10 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ViewSet
 
 from care.facility.api.serializers.prescription import (
-    MedicineAdministrationSerializer,
-    PrescriptionSerializer,
+    MedicineAdministrationDetailSerializer,
+    MedicineAdministrationListSerializer,
+    PrescriptionDetailSerializer,
+    PrescriptionListSerializer,
 )
 from care.facility.models import (
     MedicineAdministration,
@@ -39,7 +41,7 @@ class MedicineAdminstrationFilter(filters.FilterSet):
 class MedicineAdministrationViewSet(
     mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericViewSet
 ):
-    serializer_class = MedicineAdministrationSerializer
+    serializer_class = MedicineAdministrationDetailSerializer
     permission_classes = (IsAuthenticated,)
     queryset = MedicineAdministration.objects.all().order_by("-created_date")
     lookup_field = "external_id"
@@ -57,6 +59,11 @@ class MedicineAdministrationViewSet(
         consultation_obj = self.get_consultation_obj()
         return self.queryset.filter(prescription__consultation_id=consultation_obj.id)
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return MedicineAdministrationListSerializer
+        return self.serializer_class
+
 
 class ConsultationPrescriptionFilter(filters.FilterSet):
     is_prn = filters.BooleanFilter()
@@ -69,12 +76,17 @@ class ConsultationPrescriptionViewSet(
     mixins.RetrieveModelMixin,
     GenericViewSet,
 ):
-    serializer_class = PrescriptionSerializer
+    serializer_class = PrescriptionDetailSerializer
     permission_classes = (IsAuthenticated,)
     queryset = Prescription.objects.all().order_by("-created_date")
     lookup_field = "external_id"
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ConsultationPrescriptionFilter
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return PrescriptionListSerializer
+        return self.serializer_class
 
     def get_consultation_obj(self):
         return get_object_or_404(
@@ -109,7 +121,7 @@ class ConsultationPrescriptionViewSet(
     @action(
         methods=["POST"],
         detail=True,
-        serializer_class=MedicineAdministrationSerializer,
+        serializer_class=MedicineAdministrationDetailSerializer,
     )
     def administer(self, request, *args, **kwargs):
         prescription_obj = self.get_object()
