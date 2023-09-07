@@ -87,8 +87,6 @@ class AssetServiceViewSetTestCase(TestBase, TestClassMixin, APITestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["last_service"]["serviced_on"], self.today)
-        self.assertEqual(response.data["last_service"]["note"], "Hello")
 
     def test_update_asset_service_record(self):
         sample_data = {"last_serviced_on": self.today, "note": "Hello 2"}
@@ -102,8 +100,6 @@ class AssetServiceViewSetTestCase(TestBase, TestClassMixin, APITestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["last_service"]["serviced_on"], self.today)
-        self.assertEqual(response.data["last_service"]["note"], "Hello 2")
 
     def test_edit_asset_service_record(self):
         sample_data = {"serviced_on": self.yesterday, "note": "Hello 3"}

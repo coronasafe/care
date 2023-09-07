@@ -18,10 +18,12 @@ from care.facility.models import (
     Disease,
     DiseaseStatusEnum,
     Facility,
+    HospitalDoctors,
     LocalBody,
     PatientConsultation,
     PatientRegistration,
     User,
+    Ward,
 )
 from care.users.models import District, State
 from config.tests.helper import EverythingEquals, mock_equal
@@ -35,6 +37,12 @@ class TestBase(APITestCase):
     maxDiff = None
 
     @classmethod
+    def create_ward(cls, local_body: LocalBody, **kwargs) -> Ward:
+        return Ward.objects.create(
+            local_body=local_body, name="Ward", number=1, **kwargs
+        )
+
+    @classmethod
     def create_user(cls, district: District, username: str = "user", **kwargs) -> User:
         data = {
             "email": f"{username}@somedomain.com",
@@ -46,6 +54,8 @@ class TestBase(APITestCase):
             "password": "bar",
             "district": district,
             "user_type": User.TYPE_VALUE_MAP["Staff"],
+            "ward": cls.ward,
+            "local_body": cls.local_body,
         }
         data.update(kwargs)
         return User.objects.create_user(**data)
@@ -82,6 +92,15 @@ class TestBase(APITestCase):
         return State.objects.create(name=f"State{datetime.datetime.now().timestamp()}")
 
     @classmethod
+    def create_local_body(cls) -> LocalBody:
+        return LocalBody.objects.create(
+            name=f"LocalBody{datetime.datetime.now().timestamp()}",
+            body_type=1,
+            localbody_code="G071401",
+            district=cls.district,
+        )
+
+    @classmethod
     def create_facility(
         cls, district: District, user: User = None, **kwargs
     ) -> Facility:
@@ -95,6 +114,8 @@ class TestBase(APITestCase):
             "oxygen_capacity": 10,
             "phone_number": "9998887776",
             "created_by": user,
+            "ward": cls.ward,
+            "local_body": cls.local_body,
         }
         data.update(kwargs)
         f = Facility(**data)
@@ -228,8 +249,10 @@ class TestBase(APITestCase):
         super(TestBase, cls).setUpClass()
         cls.state = cls.create_state()
         cls.district = cls.create_district(cls.state)
+        cls.local_body = cls.create_local_body()
+        cls.ward = cls.create_ward(cls.local_body)
         cls.user_type = User.TYPE_VALUE_MAP["Staff"]
-        cls.user = cls.create_user(cls.district)
+        cls.user = cls.create_user(cls.district, cls.ward)
         cls.super_user = cls.create_super_user(district=cls.district)
         cls.facility = cls.create_facility(cls.district)
         cls.patient = cls.create_patient()
@@ -446,7 +469,6 @@ class TestBase(APITestCase):
             "note": note,
         }
         data.update(kwargs)
-
         patientId = patient.external_id
 
         refresh_token = RefreshToken.for_user(created_by)
@@ -455,3 +477,7 @@ class TestBase(APITestCase):
         )
 
         self.client.post(f"/api/v1/patient/{patientId}/notes/", data=data)
+
+    @classmethod
+    def create_hospital_doctor(cls, facility: Facility = None) -> HospitalDoctors:
+        return HospitalDoctors(facility=facility or cls.facility, area=1, count=10)
