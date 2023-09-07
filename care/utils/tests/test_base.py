@@ -14,6 +14,7 @@ from care.facility.models import (
     CATEGORY_CHOICES,
     COVID_CATEGORY_CHOICES,
     DISEASE_CHOICES_MAP,
+    SAMPLE_TYPE_CHOICES,
     SYMPTOM_CHOICES,
     Disease,
     DiseaseStatusEnum,
@@ -21,6 +22,7 @@ from care.facility.models import (
     LocalBody,
     PatientConsultation,
     PatientRegistration,
+    PatientSample,
     User,
 )
 from care.users.models import District, State
@@ -239,7 +241,10 @@ class TestBase(APITestCase):
             user_type=User.TYPE_VALUE_MAP["StateAdmin"],
             home_facility=cls.facility,
         )
-
+        cls.consultation = cls.create_consultation(
+            suggestion="A",
+            admission_date=make_aware(datetime.datetime(2020, 4, 1, 15, 30, 00)),
+        )
         cls.user_data = cls.get_user_data(cls.district, cls.user_type)
         cls.facility_data = cls.get_facility_data(cls.district)
         cls.patient_data = cls.get_patient_data(cls.district)
@@ -427,12 +432,14 @@ class TestBase(APITestCase):
     def create_consultation(
         cls, patient=None, facility=None, referred_to=None, **kwargs
     ) -> PatientConsultation:
+        district = cls.create_district(state=cls.state)
+        facility = cls.create_facility(district=district)
         data = cls.get_consultation_data()
         kwargs.update(
             {
                 "patient": patient or cls.patient,
                 "facility": facility or cls.facility,
-                "referred_to": referred_to,
+                "referred_to": facility,
             }
         )
         data.update(kwargs)
@@ -446,7 +453,6 @@ class TestBase(APITestCase):
             "note": note,
         }
         data.update(kwargs)
-
         patientId = patient.external_id
 
         refresh_token = RefreshToken.for_user(created_by)
@@ -455,3 +461,28 @@ class TestBase(APITestCase):
         )
 
         self.client.post(f"/api/v1/patient/{patientId}/notes/", data=data)
+
+    @classmethod
+    def create_patient_sample(cls, patient=None, consultation=None, **kwargs):
+        data = {
+            "patient": patient or cls.patient,
+            "consultation": consultation or cls.consultation,
+            "sample_type": SAMPLE_TYPE_CHOICES[0][0],
+            "sample_type_other": "Other Sample Type",
+            "has_sari": True,
+            "has_ari": True,
+            "doctor_name": "Doctor Name",
+            "diagnosis": "Diagnosis",
+            "diff_diagnosis": "Differential Diagnosis",
+            "etiology_identified": "Etiology Identified",
+            "is_atypical_presentation": True,
+            "atypical_presentation": "Atypical Presentation",
+            "is_unusual_course": True,
+            "icmr_category": PatientSample.PATIENT_ICMR_CATEGORY[0][0],
+            "icmr_label": "ICMR Label",
+            "status": PatientSample.SAMPLE_TEST_FLOW_CHOICES[0][0],
+            "result": PatientSample.SAMPLE_TEST_RESULT_CHOICES[0][0],
+            "fast_track": "Fast Track",
+        }
+        data.update(kwargs)
+        return PatientSample.objects.create(**data)
