@@ -15,6 +15,9 @@ from care.facility.models import (
     COVID_CATEGORY_CHOICES,
     DISEASE_CHOICES_MAP,
     SYMPTOM_CHOICES,
+    AssetLocation,
+    Bed,
+    ConsultationBed,
     Disease,
     DiseaseStatusEnum,
     Facility,
@@ -446,7 +449,6 @@ class TestBase(APITestCase):
             "note": note,
         }
         data.update(kwargs)
-
         patientId = patient.external_id
 
         refresh_token = RefreshToken.for_user(created_by)
@@ -455,3 +457,33 @@ class TestBase(APITestCase):
         )
 
         self.client.post(f"/api/v1/patient/{patientId}/notes/", data=data)
+
+    def create_asset_location(self):
+        return AssetLocation.objects.create(
+            name="Location 1",
+            description="Location 1",
+            location_type=1,
+            facility=self.facility,
+        )
+
+    def create_bed(self, facility=None, room_type=1, room_number="1", **kwargs):
+        asset_location = self.create_asset_location()
+        data = {
+            "name": "Bed 1",
+            "description": "Bed 1",
+            "bed_type": room_type,
+            "facility": facility or self.facility,
+            "meta": {},
+            "location": asset_location,
+        }
+        data.update(kwargs)
+        return Bed.objects.create(**data)
+
+    def create_consultation_bed(self, **kwargs):
+        data = {
+            "consultation": self.create_consultation(),
+            "bed": self.create_bed(),
+            "start_date": make_aware(datetime.datetime(2020, 4, 7, 15, 30)),
+        }
+        data.update(kwargs)
+        return ConsultationBed.objects.create(**data)

@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from care.abdm.utils.api_call import AbdmGateway
 from care.facility.api.serializers import TIMESTAMP_FIELDS
-from care.facility.api.serializers.bed import ConsultationBedSerializer
+from care.facility.api.serializers.bed import ConsultationBedDetailSerializer
 from care.facility.api.serializers.daily_round import DailyRoundSerializer
 from care.facility.api.serializers.facility import FacilityBasicInfoSerializer
 from care.facility.models import (
@@ -96,7 +96,7 @@ class PatientConsultationSerializer(serializers.ModelSerializer):
     created_by = UserBaseMinimumSerializer(read_only=True)
     last_daily_round = DailyRoundSerializer(read_only=True)
 
-    current_bed = ConsultationBedSerializer(read_only=True)
+    current_bed = ConsultationBedDetailSerializer(read_only=True)
 
     bed = ExternalIdSerializerField(queryset=Bed.objects.all(), required=False)
 
