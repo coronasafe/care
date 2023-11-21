@@ -6,8 +6,10 @@ from uuid import uuid4
 
 from django.test import override_settings
 from django.utils.timezone import make_aware, now
+from faker import Faker
 from pytz import unicode
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from care.facility.models import (
     CATEGORY_CHOICES,
@@ -19,13 +21,17 @@ from care.facility.models import (
     Facility,
     LocalBody,
     PatientConsultation,
+    PatientExternalTest,
     PatientRegistration,
     User,
+    Ward,
 )
 from care.facility.models.asset import Asset, AssetLocation
 from care.facility.models.bed import Bed, ConsultationBed
 from care.facility.models.facility import FacilityUser
 from care.users.models import District, State
+
+fake = Faker()
 
 
 class override_cache(override_settings):
@@ -95,17 +101,6 @@ class TestUtils:
     @classmethod
     def create_district(cls, state: State) -> District:
         return District.objects.create(state=state, name=f"District{now().timestamp()}")
-
-    @classmethod
-    def create_local_body(cls, district: District, **kwargs) -> LocalBody:
-        data = {
-            "name": f"LocalBody{now().timestamp()}",
-            "district": district,
-            "body_type": 10,
-            "localbody_code": "d123456",
-        }
-        data.update(kwargs)
-        return LocalBody.objects.create(**data)
 
     @classmethod
     def get_user_data(cls, district: District, user_type: str = None):
@@ -310,25 +305,6 @@ class TestUtils:
         }
 
     @classmethod
-    def create_consultation(
-        cls,
-        patient: PatientRegistration,
-        facility: Facility,
-        referred_to=None,
-        **kwargs,
-    ) -> PatientConsultation:
-        data = cls.get_consultation_data().copy()
-        kwargs.update(
-            {
-                "patient": patient,
-                "facility": facility,
-                "referred_to": referred_to,
-            }
-        )
-        data.update(kwargs)
-        return PatientConsultation.objects.create(**data)
-
-    @classmethod
     def create_asset_location(cls, facility: Facility, **kwargs) -> AssetLocation:
         data = {
             "name": "asset1 location",
@@ -509,3 +485,90 @@ class TestUtils:
                 },
                 **self.get_local_body_district_state_representation(facility),
             }
+
+    @classmethod
+    def create_consultation(
+        cls,
+        patient: PatientRegistration = None,
+        facility: Facility = None,
+        referred_to=None,
+        **kwargs,
+    ) -> PatientConsultation:
+        data = cls.get_consultation_data().copy()
+        kwargs.update(
+            {
+                "patient": patient or cls.patient,
+                "facility": facility or cls.facility,
+                "referred_to": referred_to,
+            }
+        )
+        data.update(kwargs)
+        return PatientConsultation.objects.create(**data)
+
+    def create_patient_note(
+        self, patient=None, note="Patient is doing find", created_by=None, **kwargs
+    ):
+        data = {
+            "facility": patient.facility or self.facility,
+            "note": note,
+        }
+        data.update(kwargs)
+        patientId = patient.external_id
+
+        refresh_token = RefreshToken.for_user(created_by)
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {refresh_token.access_token}"
+        )
+
+        self.client.post(f"/api/v1/patient/{patientId}/notes/", data=data)
+
+    @classmethod
+    def create_patient_external_test(
+        cls,
+        ward: Ward = None,
+        local_body: LocalBody = None,
+        district: District = None,
+        **kwargs,
+    ):
+        patient = PatientExternalTest(
+            srf_id=fake.uuid4(),
+            name=fake.name(),
+            age=fake.random_int(min=1, max=100),
+            age_in=fake.word(ext_word_list=["years", "months"]),
+            gender=fake.random_element(elements=("Male", "Female")),
+            address=fake.address(),
+            mobile_number=fake.phone_number()[:10],
+            is_repeat=fake.boolean(),
+            patient_status=fake.random_element(
+                elements=("Recovered", "Deceased", "Active")
+            ),
+            lab_name=fake.company(),
+            test_type=fake.random_element(elements=("PCR", "Antigen", "Antibody")),
+            sample_type=fake.random_element(elements=("Nasal swab", "Saliva", "Blood")),
+            result=fake.random_element(elements=("Positive", "Negative", "Pending")),
+            sample_collection_date=fake.date_this_year(),
+            result_date=fake.date_this_year(),
+            district=district,
+            local_body=local_body,
+            ward=ward,
+        )
+        patient.save()
+        return patient
+
+    @classmethod
+    def create_local_body(cls, district=None, name=None, body_type=10, **kwargs):
+        data = {
+            "district": district or cls.district,
+            "name": name or "Test Local Body",
+            "body_type": body_type,
+        }
+        return LocalBody.objects.create(**data)
+
+    @classmethod
+    def create_ward(cls, local_body=None, name=None, number=10, **kwargs):
+        data = {
+            "local_body": local_body,
+            "name": "Test Ward",
+            "number": number,
+        }
+        return Ward.objects.create(**data)
