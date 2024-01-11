@@ -22,6 +22,7 @@ from care.users.api.serializers.user import (
     UserListSerializer,
     UserSerializer,
 )
+from care.utils.cache.cache_allowed_facilities import get_accessible_facilities
 
 User = get_user_model()
 
@@ -121,6 +122,37 @@ class UserViewSet(
     #         IsAuthenticated(),
     #         DRYPermissions(),
     #     ]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return self.queryset
+        if (
+            self.request.user.user_type == User.TYPE_VALUE_MAP["StateAdmin"]
+            or self.request.user.user_type == User.TYPE_VALUE_MAP["StateReadOnlyAdmin"]
+        ):
+            return self.queryset.filter(
+                state=self.request.user.state,
+                user_type__lt=User.TYPE_VALUE_MAP["StateAdmin"],
+                is_superuser=False,
+            )
+        if (
+            self.request.user.user_type == User.TYPE_VALUE_MAP["DistrictAdmin"]
+            or self.request.user.user_type
+            == User.TYPE_VALUE_MAP["DistrictReadOnlyAdmin"]
+        ):
+            return self.queryset.filter(
+                district=self.request.user.district,
+                user_type__lt=User.TYPE_VALUE_MAP["DistrictAdmin"],
+                is_superuser=False,
+            )
+        else:
+            return self.queryset.filter(
+                facilityuser__facility_id__in=get_accessible_facilities(
+                    self.request.user
+                ),
+                user_type__lt=User.TYPE_VALUE_MAP["DistrictAdmin"],
+                is_superuser=False,
+            ).distinct()
 
     def get_serializer_class(self):
         if self.action == "list":
