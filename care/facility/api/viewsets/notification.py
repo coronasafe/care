@@ -11,7 +11,10 @@ from rest_framework.response import Response
 from rest_framework.serializers import CharField, UUIDField
 from rest_framework.viewsets import GenericViewSet
 
-from care.facility.api.serializers.notification import NotificationSerializer
+from care.facility.api.serializers.notification import (
+    NotificationDetailSerializer,
+    NotificationListSerializer,
+)
 from care.facility.models.notification import Notification
 from care.users.models import User
 from care.utils.filters.choicefilter import CareChoiceFilter, inverse_choices
@@ -37,7 +40,7 @@ class NotificationViewSet(
         .select_related("intended_for", "caused_by")
         .order_by("-created_date")
     )
-    serializer_class = NotificationSerializer
+    serializer_class = NotificationDetailSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = "external_id"
     filter_backends = (filters.DjangoFilterBackend,)
@@ -87,3 +90,8 @@ class NotificationViewSet(
             message=request.data["message"],
         ).generate()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return NotificationListSerializer
+        return self.serializer_class

@@ -1,3 +1,4 @@
+import random
 import uuid
 from collections import OrderedDict
 from datetime import UTC, date, datetime
@@ -8,6 +9,7 @@ from django.test import override_settings
 from django.utils.timezone import make_aware, now
 from pytz import unicode
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from care.facility.models import (
     CATEGORY_CHOICES,
@@ -26,6 +28,7 @@ from care.facility.models import (
 from care.facility.models.asset import Asset, AssetLocation
 from care.facility.models.bed import Bed, ConsultationBed
 from care.facility.models.facility import FacilityUser
+from care.facility.models.notification import Notification
 from care.users.models import District, State
 
 
@@ -520,3 +523,44 @@ class TestUtils:
                 },
                 **self.get_local_body_district_state_representation(facility),
             }
+
+    def create_patient_note(
+        self, patient=None, note="Patient is doing find", created_by=None, **kwargs
+    ):
+        data = {
+            "facility": patient.facility or self.facility,
+            "note": note,
+        }
+        data.update(kwargs)
+
+        patientId = patient.external_id
+
+        refresh_token = RefreshToken.for_user(created_by)
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {refresh_token.access_token}"
+        )
+
+        self.client.post(f"/api/v1/patient/{patientId}/notes/", data=data)
+
+    @classmethod
+    def create_notification(cls, intended_for=None, **kwargs):
+        users = User.objects.exclude(username=cls.user.username)
+        medium_sent = random.choice(
+            [choice[0] for choice in Notification.MediumChoices]
+        )
+        event_type = random.choice(
+            [choice[0] for choice in Notification.EventTypeChoices]
+        )
+        event = random.choice([choice[0] for choice in Notification.EventChoices])
+        data = {
+            "intended_for": intended_for or cls.user,
+            "medium_sent": medium_sent,
+            "caused_by": random.choice(users),
+            "read_at": None,
+            "event_type": event_type,
+            "event": event,
+            "message": "Test Message",
+            "caused_objects": None,
+        }
+        data.update(kwargs)
+        return Notification.objects.create(**data)
