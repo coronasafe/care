@@ -42,12 +42,14 @@ from care.facility.models import (
     Asset,
     AssetAvailabilityRecord,
     AssetLocation,
+    AssetLocationDutyStaff,
     AssetService,
     AssetTransaction,
     ConsultationBedAsset,
     UserDefaultAssetLocation,
 )
 from care.facility.models.asset import AssetTypeChoices, StatusChoices
+from care.users.api.serializers.user import UserBaseMinimumSerializer
 from care.users.models import User
 from care.utils.assetintegration.asset_classes import AssetClasses
 from care.utils.assetintegration.base import BaseAssetIntegration
@@ -117,6 +119,82 @@ class AssetLocationViewSet(
 
     def perform_create(self, serializer):
         serializer.save(facility=self.get_facility())
+
+    @extend_schema(tags=["asset_location"])
+    @action(methods=["POST"], detail=True)
+    def duty_staff(self, request, facility_external_id, external_id):
+        """
+        Endpoint for assigning staffs to asset location
+        """
+
+        asset: AssetLocation = self.get_object()
+        duty_staff = request.data.get("duty_staff")
+
+        if not duty_staff:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        query = AssetLocationDutyStaff.objects.filter(
+            asset_location=asset, user__id=duty_staff, deleted=False
+        )
+
+        if query.exists():
+            raise ValidationError(
+                {"duty_staff": "Staff already assigned to the location"}
+            )
+
+        user = User.objects.filter(id=duty_staff, home_facility=asset.facility)
+        if not user.exists():
+            raise ValidationError(
+                {"duty_staff": "Staff does not belong to the facility"}
+            )
+
+        AssetLocationDutyStaff.objects.create(
+            asset_location=asset, user=user.first(), created_by=request.user
+        )
+
+        return Response(status=status.HTTP_201_CREATED)
+
+    @extend_schema(tags=["asset_location"])
+    @duty_staff.mapping.get
+    def duty_staff_get(self, request, facility_external_id, external_id):
+        """
+        Endpoint for getting staffs from asset location
+        """
+
+        asset: AssetLocation = self.get_object()
+
+        duty_staff = User.objects.filter(
+            id__in=AssetLocationDutyStaff.objects.filter(
+                asset_location=asset, deleted=False
+            ).values_list("user__id", flat=True)
+        )
+
+        return Response(
+            UserBaseMinimumSerializer(duty_staff, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(tags=["asset_location"])
+    @duty_staff.mapping.delete
+    def duty_staff_delete(self, request, facility_external_id, external_id):
+        """
+        Endpoint for removing staffs from asset location
+        """
+
+        asset: AssetLocation = self.get_object()
+
+        if "duty_staff" not in request.data:
+            raise ValidationError({"duty_staff": "Staff is required"})
+
+        duty_staff = request.data.get("duty_staff")
+        if not duty_staff:
+            raise ValidationError({"duty_staff": "Staff is required"})
+
+        AssetLocationDutyStaff.objects.filter(
+            asset_location=asset, user__id=duty_staff
+        ).update(deleted=True)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AssetFilter(filters.FilterSet):
@@ -260,7 +338,9 @@ class AssetViewSet(
             queryset = self.filter_queryset(self.get_queryset()).values(*mapping.keys())
             pretty_mapping = Asset.CSV_MAKE_PRETTY.copy()
             return render_to_csv_response(
-                queryset, field_header_map=mapping, field_serializer_map=pretty_mapping
+                queryset,
+                field_header_map=mapping,
+                field_serializer_map=pretty_mapping,
             )
 
         return super(AssetViewSet, self).list(request, *args, **kwargs)

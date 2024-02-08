@@ -29,7 +29,10 @@ from care.facility.models.asset import (
     StatusChoices,
     UserDefaultAssetLocation,
 )
-from care.users.api.serializers.user import UserBaseMinimumSerializer
+from care.users.api.serializers.user import (
+    UserAssignedSerializer,
+    UserBaseMinimumSerializer,
+)
 from care.utils.assetintegration.hl7monitor import HL7MonitorAsset
 from care.utils.assetintegration.onvif import OnvifAsset
 from care.utils.assetintegration.ventilator import VentilatorAsset
@@ -42,6 +45,11 @@ class AssetLocationSerializer(ModelSerializer):
     facility = FacilityBareMinimumSerializer(read_only=True)
     id = UUIDField(source="external_id", read_only=True)
     location_type = ChoiceField(choices=AssetLocation.RoomTypeChoices)
+    users = serializers.SerializerMethodField()
+
+    def get_users(self, obj):
+        users = obj.users.filter(assetlocationdutystaff__deleted=False)
+        return UserAssignedSerializer(users, many=True, read_only=True).data
 
     def validate_middleware_address(self, value):
         value = (value or "").strip()
@@ -130,7 +138,10 @@ class AssetServiceSerializer(ModelSerializer):
         "type": "object",
         "properties": {
             "hostname": {"type": "string"},
-            "source": {"type": "string", "enum": ["asset", "location", "facility"]},
+            "source": {
+                "type": "string",
+                "enum": ["asset", "location", "facility"],
+            },
         },
         "nullable": True,
     }
@@ -214,7 +225,9 @@ class AssetSerializer(ModelSerializer):
             asset_instance = super().create(validated_data)
             if last_serviced_on or note:
                 asset_service = AssetService(
-                    asset=asset_instance, serviced_on=last_serviced_on, note=note
+                    asset=asset_instance,
+                    serviced_on=last_serviced_on,
+                    note=note,
                 )
                 asset_service.save()
                 asset_instance.last_service = asset_service
