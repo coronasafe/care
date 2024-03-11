@@ -37,6 +37,11 @@ jobs:
     needs: test
     name: Build & Push Staging to container registries
     if: github.ref == 'refs/heads/master'
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,7 +94,7 @@ jobs:
           file: docker/prod.Dockerfile
           push: true
           provenance: false
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             APP_VERSION=${{ github.sha }}
@@ -114,6 +119,9 @@ jobs:
     needs: test
     name: Build & Push Production to container registries
     if: github.ref == 'refs/heads/production'
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -167,7 +175,7 @@ jobs:
           file: docker/prod.Dockerfile
           push: true
           provenance: false
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             APP_VERSION=${{ github.sha }}
