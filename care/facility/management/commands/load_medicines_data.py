@@ -24,6 +24,7 @@ class Command(BaseCommand):
         MedibaseMedicine.objects.bulk_create(
             [
                 MedibaseMedicine(
+                    id=medicine["id"],
                     name=medicine["name"],
                     type=medicine["type"],
                     company=medicine.get("company"),
@@ -34,6 +35,19 @@ class Command(BaseCommand):
                 )
                 for medicine in medibase_objects
             ],
-            batch_size=1000,
-            ignore_conflicts=True,
+            batch_size=5000,
+            update_conflicts=True,
+            unique_fields=["name"],
+            update_fields=[
+                "created_date",
+                "modified_date",
+                "deleted",
+                "name",
+                "type",
+                "generic",
+                "company",
+                "contents",
+                "cims_class",
+                "atc_classification",
+            ],
         )
