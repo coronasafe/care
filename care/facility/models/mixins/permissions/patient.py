@@ -20,7 +20,9 @@ class PatientPermissionMixin(BasePermissionMixin):
         doctor_allowed = False
         if self.last_consultation:
             doctor_allowed = (
-                self.last_consultation.assigned_to == request.user
+                self.last_consultation.assigned_clinicians.filter(
+                    id=request.user.id
+                ).exists()
                 or request.user == self.assigned_to
             )
         return request.user.is_superuser or (
@@ -61,7 +63,9 @@ class PatientPermissionMixin(BasePermissionMixin):
         doctor_allowed = False
         if self.last_consultation:
             doctor_allowed = (
-                self.last_consultation.assigned_to == request.user
+                self.last_consultation.assigned_clinicians.filter(
+                    id=request.user.id
+                ).exists()
                 or request.user == self.assigned_to
             )
 
@@ -100,7 +104,9 @@ class PatientPermissionMixin(BasePermissionMixin):
         doctor_allowed = False
         if self.last_consultation:
             doctor_allowed = (
-                self.last_consultation.assigned_to == request.user
+                self.last_consultation.assigned_clinicians.filter(
+                    id=request.user.id
+                ).exists()
                 or request.user == self.assigned_to
             )
 
