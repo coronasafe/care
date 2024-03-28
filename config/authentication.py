@@ -3,6 +3,8 @@ import json
 import jwt
 import requests
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
@@ -11,10 +13,29 @@ from rest_framework import HTTP_HEADER_ENCODING
 from rest_framework.authentication import BasicAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed, InvalidToken
+from rest_framework_simplejwt.tokens import Token
 
 from care.facility.models import Facility
 from care.facility.models.asset import Asset
 from care.users.models import User
+
+
+def jwk_response_cache_key(url: str) -> str:
+    return f"jwk_response:{url}"
+
+
+class MiddlewareUser(AnonymousUser):
+    """
+    Read-only user class for middleware authentication
+    """
+
+    def __init__(self, facility, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.facility = facility
+
+    @property
+    def is_authenticated(self):
+        return True
 
 
 class CustomJWTAuthentication(JWTAuthentication):
@@ -49,13 +70,28 @@ class MiddlewareAuthentication(JWTAuthentication):
     auth_header_type_bytes = auth_header_type.encode(HTTP_HEADER_ENCODING)
 
     def open_id_authenticate(self, url, token):
-        public_key = requests.get(url)
-        jwk = public_key.json()["keys"][0]
-        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
-        return jwt.decode(token, key=public_key, algorithms=["RS256"])
+        public_key_json = cache.get(jwk_response_cache_key(url))
+        try:
+            if not public_key_json:
+                res = requests.get(url)
+                res.raise_for_status()
+                public_key_json = res.json()
+
+            public_key = jwt.algorithms.RSAAlgorithm.from_jwk(
+                json.dumps(public_key_json["keys"][0])
+            )
+            payload = jwt.decode(token, key=public_key, algorithms=["RS256"])
+            cache.set(jwk_response_cache_key(url), public_key_json, timeout=60 * 5)
+            return payload
+        except Exception:
+            cache.delete(jwk_response_cache_key(url))
+            raise
 
     def authenticate_header(self, request):
         return f'{self.auth_header_type} realm="{self.www_authenticate_realm}"'
+
+    def get_user(self, _: Token, facility: Facility):
+        return MiddlewareUser(facility=facility)
 
     def authenticate(self, request):
         header = self.get_header(request)
@@ -119,6 +155,8 @@ class MiddlewareAuthentication(JWTAuthentication):
 
         raise InvalidToken({"detail": "Given token not valid for any token type"})
 
+
+class MiddlewareAssetAuthentication(MiddlewareAuthentication):
     def get_user(self, validated_token, facility):
         """
         Attempts to find and return a user using the given validated token.
@@ -229,6 +267,25 @@ class MiddlewareAuthenticationScheme(OpenApiAuthenticationExtension):
             "bearerFormat": "JWT",
             "description": _(
                 "Used for authenticating requests from the middleware. "
+                "The scheme requires a valid JWT token in the Authorization header "
+                "along with the facility id in the X-Facility-Id header. "
+                "--The value field is just for preview, filling it will show allowed "
+                "endpoints.--"
+            ),
+        }
+
+
+class MiddlewareAssetAuthenticationScheme(OpenApiAuthenticationExtension):
+    target_class = "config.authentication.MiddlewareAssetAuthentication"
+    name = "middlewareAssetAuth"
+
+    def get_security_definition(self, auto_schema):
+        return {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": _(
+                "Used for authenticating requests from the middleware on behalf of assets. "
                 "The scheme requires a valid JWT token in the Authorization header "
                 "along with the facility id in the X-Facility-Id header. "
                 "--The value field is just for preview, filling it will show allowed "
