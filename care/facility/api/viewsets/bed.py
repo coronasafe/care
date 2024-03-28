@@ -129,6 +129,12 @@ class BedViewSet(
             exc = DRFValidationError(detail=get_error_detail(exc))
         return super().handle_exception(exc)
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
 
 class AssetBedFilter(filters.FilterSet):
     asset = filters.UUIDFilter(field_name="asset__external_id")
@@ -165,6 +171,12 @@ class AssetBedViewSet(
             allowed_facilities = get_accessible_facilities(user)
             queryset = queryset.filter(bed__facility__id__in=allowed_facilities)
         return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
 
 
 class PatientAssetBedFilter(filters.FilterSet):
@@ -249,3 +261,9 @@ class ConsultationBedViewSet(
             allowed_facilities = get_accessible_facilities(user)
             queryset = queryset.filter(bed__facility__id__in=allowed_facilities)
         return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)

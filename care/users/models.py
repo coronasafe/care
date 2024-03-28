@@ -247,7 +247,9 @@ class User(AbstractUser):
 
     gender = models.IntegerField(choices=GENDER_CHOICES, blank=False)
     date_of_birth = models.DateField(null=True, blank=True)
-    skills = models.ManyToManyField("Skill", through=UserSkill)
+    skills = models.ManyToManyField(
+        "Skill", through=UserSkill, through_fields=("user", "skill")
+    )
     home_facility = models.ForeignKey(
         "facility.Facility", on_delete=models.PROTECT, null=True, blank=True
     )
