@@ -219,11 +219,16 @@ class PatientDetailSerializer(PatientListSerializer):
     )
     abha_number_object = AbhaNumberSerializer(source="abha_number", read_only=True)
 
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+
+    is_antenatal = serializers.BooleanField(default=False)
+
+    year_of_birth = serializers.IntegerField(default=0)
+
     class Meta:
         model = PatientRegistration
         exclude = (
             "deleted",
-            "year_of_birth",
             "countries_travelled_old",
             "external_id",
         )
@@ -246,6 +251,17 @@ class PatientDetailSerializer(PatientListSerializer):
             value = []
         if not isinstance(value, list):
             value = [value]
+        return value
+
+    def validate_date_of_birth(self, value):
+        if value and value > now().date:
+            raise serializers.ValidationError("Enter a valid DOB such that age > 0")
+
+        return value
+
+    def validate_year_of_birth(self, value):
+        if value and value > now().year:
+            raise serializers.ValidationError("Enter a valid year of birth")
         return value
 
     def validate(self, attrs):
@@ -303,7 +319,9 @@ class PatientDetailSerializer(PatientListSerializer):
                     self.check_external_entry(validated_data["srf_id"])
 
             validated_data["created_by"] = self.context["request"].user
+
             patient = super().create(validated_data)
+
             diseases = []
 
             for disease in medical_history:
