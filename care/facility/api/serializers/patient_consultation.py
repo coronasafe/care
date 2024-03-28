@@ -29,6 +29,7 @@ from care.facility.models import (
 )
 from care.facility.models.asset import AssetLocation
 from care.facility.models.bed import Bed, ConsultationBed
+from care.facility.models.daily_round import DailyRound
 from care.facility.models.icd11_diagnosis import (
     ConditionVerificationStatus,
     ConsultationDiagnosis,
@@ -49,6 +50,7 @@ from care.users.models import User
 from care.utils.notification_handler import NotificationGenerator
 from care.utils.queryset.facility import get_home_facility_queryset
 from care.utils.serializer.external_id_field import ExternalIdSerializerField
+from config.mews_annotation import MewsType
 from config.serializers import ChoiceField
 
 MIN_ENCOUNTER_DATE = make_aware(settings.MIN_ENCOUNTER_DATE)
@@ -93,6 +95,8 @@ class PatientConsultationSerializer(serializers.ModelSerializer):
     referred_by_external = serializers.CharField(
         required=False, allow_null=True, allow_blank=True
     )
+
+    mews_field: MewsType = serializers.SerializerMethodField()
 
     transferred_from_location_object = AssetLocationSerializer(
         source="transferred_from_location", read_only=True
@@ -179,6 +183,7 @@ class PatientConsultationSerializer(serializers.ModelSerializer):
             "is_readmission",
             "deprecated_diagnosis",
             "deprecated_verified_by",
+            "mews_field",
         )
         exclude = (
             "deleted",
@@ -195,6 +200,54 @@ class PatientConsultationSerializer(serializers.ModelSerializer):
         except KeyError:
             bed_number = None
         return bed_number
+
+    def get_mews_field(self, consultation):
+        current_time = localtime(now())
+        past_30_minutes = current_time - timedelta(minutes=30)
+        mews_field_data: MewsType = {
+            "resp": None,
+            "bp": {},
+            "pulse": None,
+            "temperature": None,
+            "consciousness_level": DailyRound.ConsciousnessType.UNKNOWN.value,
+            "modified_date": None,
+        }
+        recentDailyArray = (
+            DailyRound.objects.filter(
+                consultation=consultation,
+                created_date__gte=past_30_minutes,
+                created_date__lte=current_time,
+            )
+            .order_by("-created_date")
+            .only(*(list(mews_field_data.keys())))
+        )
+        if len(recentDailyArray) == 0:
+            return mews_field_data
+        mews_field_data["modified_date"] = localtime(recentDailyArray[0].modified_date)
+        for obj in recentDailyArray:
+            count = 0
+            for key in mews_field_data:
+                newValue = getattr(obj, key, None)
+                if (
+                    (key != "modified_date")
+                    and (
+                        key == "bp"
+                        and len(mews_field_data[key]) == 0
+                        and len(newValue) == 3
+                    )
+                    or (
+                        key == "consciousness_level"
+                        and mews_field_data[key]
+                        == DailyRound.ConsciousnessType.UNKNOWN.value
+                        and newValue != DailyRound.ConsciousnessType.UNKNOWN.value
+                    )
+                    or (mews_field_data[key] is None and newValue is not None)
+                ):
+                    mews_field_data[key] = newValue
+                    count += 1
+            if count == 5:
+                break
+        return mews_field_data
 
     def update(self, instance, validated_data):
         old_instance = copy(instance)
