@@ -588,6 +588,7 @@ JWKS = JsonWebKey.import_key_set(
     json.loads(base64.b64decode(env("JWKS_BASE64", default=generate_encoded_jwks())))
 )
 
+
 # ABDM
 ENABLE_ABDM = env.bool("ENABLE_ABDM", default=False)
 ABDM_CLIENT_ID = env("ABDM_CLIENT_ID", default="")
@@ -614,8 +615,13 @@ HCX_AUTH_BASE_PATH = env(
     "HCX_AUTH_BASE_PATH",
     default="https://staging-hcx.swasth.app/auth/realms/swasth-health-claim-exchange/protocol/openid-connect/token",
 )
+HCX_CERT_URL = env(
+    "HCX_CERT_URL",
+    default="https://raw.githubusercontent.com/Swasth-Digital-Health-Foundation/hcx-platform/sprint-27/hcx-apis/src/test/resources/examples/x509-self-signed-certificate.pem",
+)
+
+HCX_USERNAME = env("HCX_USERNAME", default="hcx_user_internal")
 HCX_PARTICIPANT_CODE = env("HCX_PARTICIPANT_CODE", default="")
-HCX_USERNAME = env("HCX_USERNAME", default="")
 HCX_PASSWORD = env("HCX_PASSWORD", default="")
 HCX_ENCRYPTION_PRIVATE_KEY_URL = env("HCX_ENCRYPTION_PRIVATE_KEY_URL", default="")
 HCX_IG_URL = env("HCX_IG_URL", default="https://ig.hcxprotocol.io/v0.7.1")
