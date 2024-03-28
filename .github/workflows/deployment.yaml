@@ -214,7 +214,7 @@ jobs:
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Get the GKE credentials so we can deploy to the cluster
-      - uses: google-github-actions/get-gke-credentials@fb08709ba27618c31c09e014e1d8364b02e5042e
+      - uses: google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
@@ -260,7 +260,7 @@ jobs:
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Get the GKE credentials so we can deploy to the cluster
-      - uses: google-github-actions/get-gke-credentials@fb08709ba27618c31c09e014e1d8364b02e5042e
+      - uses: google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
@@ -306,7 +306,7 @@ jobs:
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Get the GKE credentials so we can deploy to the cluster
-      - uses: google-github-actions/get-gke-credentials@fb08709ba27618c31c09e014e1d8364b02e5042e
+      - uses: google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
@@ -352,7 +352,7 @@ jobs:
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Get the GKE credentials so we can deploy to the cluster
-      - uses: google-github-actions/get-gke-credentials@fb08709ba27618c31c09e014e1d8364b02e5042e
+      - uses: google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
@@ -398,7 +398,7 @@ jobs:
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Get the GKE credentials so we can deploy to the cluster
-      - uses: google-github-actions/get-gke-credentials@fb08709ba27618c31c09e014e1d8364b02e5042e
+      - uses: google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
@@ -444,7 +444,7 @@ jobs:
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Get the GKE credentials, so we can deploy to the cluster
-      - uses: google-github-actions/get-gke-credentials@fb08709ba27618c31c09e014e1d8364b02e5042e
+      - uses: google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
@@ -490,7 +490,7 @@ jobs:
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Get the GKE credentials, so we can deploy to the cluster
-      - uses: google-github-actions/get-gke-credentials@fb08709ba27618c31c09e014e1d8364b02e5042e
+      - uses: google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
