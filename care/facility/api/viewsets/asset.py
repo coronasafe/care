@@ -15,7 +15,7 @@ from rest_framework import exceptions
 from rest_framework import filters as drf_filters
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.mixins import (
     CreateModelMixin,
     DestroyModelMixin,
@@ -371,6 +371,7 @@ class AssetViewSet(
         """
         try:
             action = request.data["action"]
+            action["user"] = request.user.username
             asset: Asset = self.get_object()
             middleware_hostname = (
                 asset.meta.get(
@@ -385,15 +386,53 @@ class AssetViewSet(
                     "middleware_hostname": middleware_hostname,
                 }
             )
-            result = asset_class.handle_action(action)
+            asset_class.validate_action(action)
+
+            # cache the move camera actions for 3 seconds
+            if action["type"] == "relative_move" or action["type"] == "absolute_move":
+                cacheId = f"asset_move: {str(asset.external_id)}"
+                if cache.get(cacheId):
+                    return Response(
+                        {"status": "failure", "message": "Camera is still moving"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                cache.set(cacheId, True, 3)
+
+            result = asset_class.handle_action(
+                action,
+                username=request.user.username,
+                asset_id=asset.external_id,
+            )
             return Response({"result": result}, status=status.HTTP_200_OK)
 
+        except PermissionDenied as e:
+            user: User = User.objects.get(
+                username=cache.get(f"asset_lock_{asset.external_id}")
+            )
+            return Response(
+                {
+                    "message": e.detail.get("message", None),
+                    "username": user.username,
+                    "firstName": user.first_name,
+                    "lastName": user.last_name,
+                    "role": User.REVERSE_TYPE_MAP[user.user_type],
+                    "homeFacility": user.home_facility,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         except ValidationError as e:
             return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
         except KeyError as e:
             return Response(
-                {"message": {key: "is required" for key in e.args}},
+                {
+                    "message": {key: "is required" for key in e.args},
+                    "username": e.detail.get("username", None),
+                    "firstName": e.detail.get("firstName", None),
+                    "lastName": e.detail.get("lastName", None),
+                    "role": e.detail.get("role", None),
+                    "homeFacility": e.detail.get("homeFacility", None),
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

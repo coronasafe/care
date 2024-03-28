@@ -5,6 +5,7 @@ from django.apps import apps
 from django.conf import settings
 from pywebpush import WebPushException, webpush
 
+from care.facility.models.asset import Asset
 from care.facility.models.daily_round import DailyRound
 from care.facility.models.facility import Facility, FacilityUser
 from care.facility.models.notification import Notification
@@ -230,6 +231,9 @@ class NotificationGenerator:
                     self.caused_object.patient.name,
                     self.caused_by.get_full_name(),
                 )
+        elif isinstance(self.caused_object, Asset):
+            if self.event == Notification.Event.ASSET_UNLOCKED.value:
+                message = f"{self.caused_object.name} is ready to use"
         elif isinstance(self.caused_object, PatientNotes):
             if self.event == Notification.Event.PATIENT_NOTE_ADDED.value:
                 message = "Notes for Patient {} was added by {}".format(

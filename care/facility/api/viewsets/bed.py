@@ -3,8 +3,10 @@ from django.db import IntegrityError, transaction
 from django.db.models import Exists, OuterRef, Subquery
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from dry_rest_permissions.generics import DRYPermissions
 from rest_framework import filters as drf_filters
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.fields import get_error_detail
@@ -235,6 +237,10 @@ class ConsultationBedViewSet(
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ConsultationBedFilter
     lookup_field = "external_id"
+    permission_classes = (
+        IsAuthenticated,
+        DRYPermissions,
+    )
 
     def get_queryset(self):
         user = self.request.user
@@ -249,3 +255,50 @@ class ConsultationBedViewSet(
             allowed_facilities = get_accessible_facilities(user)
             queryset = queryset.filter(bed__facility__id__in=allowed_facilities)
         return queryset
+
+    @extend_schema(
+        description="Toggle patient privacy",
+        responses={status.HTTP_200_OK: None},
+        request=None,
+        tags=["consultationbed"],
+    )
+    @action(detail=True, methods=["POST"])
+    def patient_privacy(self, request, **kwargs):
+        instance = self.get_object()
+        if instance.privacy:
+            return Response(
+                {
+                    "status": "failed",
+                    "message": "Asset already locked",
+                    "locked_by": instance.meta["locked_by"],
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        instance.privacy = True
+        instance.meta["locked_by"] = request.user.username
+        instance.save()
+        return Response(
+            {"status": "success"},
+            status=status.HTTP_200_OK,
+        )
+
+    @patient_privacy.mapping.delete
+    def disable_patient_privacy(self, request, **kwargs):
+        instance = self.get_object()
+        if not instance.privacy:
+            return Response(
+                {"status": "failure", "message": "Asset not locked"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if instance.meta["locked_by"] != request.user.username:
+            raise PermissionDenied("You do not have permission to unlock this asset")
+
+        instance.privacy = False
+        del instance.meta["locked_by"]
+        instance.save()
+        return Response(
+            {"status": "success", "privacy": instance.privacy},
+            status=status.HTTP_200_OK,
+        )

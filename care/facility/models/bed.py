@@ -11,8 +11,12 @@ from django.db.models import JSONField
 
 from care.facility.models.asset import Asset, AssetLocation
 from care.facility.models.facility import Facility
+from care.facility.models.mixins.permissions.patient import (
+    ConsultationRelatedPermissionMixin,
+)
 from care.facility.models.patient_base import BedType, BedTypeChoices
 from care.facility.models.patient_consultation import PatientConsultation
+from care.users.models import User
 from care.utils.models.base import BaseModel
 
 
@@ -71,17 +75,38 @@ class AssetBed(BaseModel):
         return f"{self.asset.name} - {self.bed.name}"
 
 
-class ConsultationBed(BaseModel):
+class ConsultationBed(BaseModel, ConsultationRelatedPermissionMixin):
     consultation = models.ForeignKey(
         PatientConsultation, on_delete=models.PROTECT, null=False, blank=False
     )
     bed = models.ForeignKey(Bed, on_delete=models.PROTECT, null=False, blank=False)
     start_date = models.DateTimeField(null=False, blank=False)
     end_date = models.DateTimeField(null=True, blank=True, default=None)
+    privacy = models.BooleanField(default=False)
     meta = JSONField(default=dict, blank=True)
     assets = models.ManyToManyField(
         Asset, through="ConsultationBedAsset", related_name="assigned_consultation_beds"
     )
+
+    @staticmethod
+    def has_patient_privacy_permission(request, **kwargs):
+        permission_mixin = ConsultationRelatedPermissionMixin()
+        return permission_mixin.has_write_permission(request)
+
+    def has_object_patient_privacy_permission(self, request, **kwargs):
+        if super().has_object_update_permission(request, **kwargs):
+            if request.user.user_type >= User.TYPE_VALUE_MAP["DistrictAdmin"]:
+                return True
+            return self.consultation.facility_id == request.user.home_facility_id
+        return False
+
+    @staticmethod
+    def has_disable_patient_privacy_permission(request, **kwargs):
+        permission_mixin = ConsultationRelatedPermissionMixin()
+        return permission_mixin.has_write_permission(request)
+
+    def has_object_disable_patient_privacy_permission(self, request, **kwargs):
+        return self.has_object_patient_privacy_permission(request, **kwargs)
 
 
 class ConsultationBedAsset(BaseModel):
